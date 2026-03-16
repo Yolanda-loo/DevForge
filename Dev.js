@@ -2,17 +2,31 @@ import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 
 const DevForgeEditor = ({ roomId }) => {
-  const [code, setCode] = useState("// Start coding together...");
+  const codeRef = useRef("// Start coding together...");
+  const [code, setCode] = useState(codeRef.current);
   const socketRef = useRef(null);
 
   useEffect(() => {
     // 1. Initialize WebSocket connection to your FastAPI backend
     socketRef.current = new WebSocket(`ws://localhost:8000/ws/${roomId}`);
 
+    socketRef.current.onopen = () => {
+      console.log('WebSocket connected');
+    };
+
+    socketRef.current.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+
+    socketRef.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+
     // 2. Listen for incoming code updates from other users
     socketRef.current.onmessage = (event) => {
       const incomingCode = event.data;
-      if (incomingCode !== code) {
+      if (incomingCode !== codeRef.current) {
+        codeRef.current = incomingCode;
         setCode(incomingCode);
       }
     };
@@ -23,6 +37,7 @@ const DevForgeEditor = ({ roomId }) => {
   }, [roomId]);
 
   const handleEditorChange = (value) => {
+    codeRef.current = value;
     setCode(value);
     // 3. Send our changes to the server to broadcast to others
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
@@ -41,7 +56,7 @@ const DevForgeEditor = ({ roomId }) => {
         <Editor
           height="80vh"
           theme="vs-dark"
-          defaultLanguage="python"
+          defaultLanguage="javascript"
           value={code}
           onChange={handleEditorChange}
           options={{
